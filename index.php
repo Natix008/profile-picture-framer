@@ -5,14 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Support Campaign</title>
 
-  <!-- <link href="css/croppie.css" rel="stylesheet" /> -->
-  <link href="css/style-2.css" rel="stylesheet" />
+  <link href="css/style.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
-  <!-- <script src="js/croppie.min.js"></script> -->
   <script src="js/fabric.min.js"></script>
-  <script src="js/app-2.js"></script>
+  <script src="js/app.js"></script>
 </head>
 
 <body>
@@ -96,7 +93,7 @@
           Upload a square profile photo for the best result
         </div>
 
-        <input type="file" name="file" onchange="onFileChange(this)">
+        <input type="file" name="file">
       </div>
 
       <div class="field">

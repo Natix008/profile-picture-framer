@@ -19,7 +19,7 @@
     rel="stylesheet"
   />
 
-  <link href="css/style-2.css" rel="stylesheet" />
+  <link href="css/style.css" rel="stylesheet" />
 
   <style>
 
@@ -320,7 +320,7 @@
       </div>
 
       <textarea
-        id="zcmcMessage"
+        id="caption"
         readonly
       >
 Hi, I’m <?php echo htmlspecialchars($_GET["name"] ?? '');?>.
@@ -375,7 +375,7 @@ I’m staying focused on what matters most and finishing this season with a grat
     function copyText() {
 
       const textarea =
-        document.getElementById('zcmcMessage');
+        document.getElementById('caption');
 
       textarea.select();
 
@@ -404,8 +404,6 @@ I’m staying focused on what matters most and finishing this season with a grat
 
       const generatedImage =
         sessionStorage.getItem('campaignImage');
-
-      console.log(generatedImage);
 
       if(!generatedImage){
         alert('Image not found. Please generate again.');

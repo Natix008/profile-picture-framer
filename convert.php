@@ -1,44 +1,52 @@
 <?php
-/**
- * Add frame to profile picture
- * @param  string $sourcePath Path to profile picture
- * @param  int    $design     Frame to use
- * @return binary             Binary data of framed profile picture
- */
 function makeDP($sourcePath, $design = 0) {
-  if (!in_array($design, array(0, 1, 2))) exit;
+    if (!in_array($design, [0, 1, 2])) {
+        return false;
+    }
 
-  $designPath = __DIR__ . "/frames/frame-$design.png";
+    $designPath = __DIR__ . "/frames/frame-{$design}.png";
+    if (!file_exists($designPath)) {
+        return false;
+    }
 
-  // Load user image
-  $src = imagecreatefromstring(file_get_contents($sourcePath));
-  list($srcWidth, $srcHeight) = getimagesize($sourcePath);
+    $imageData = file_get_contents($sourcePath);
+    if ($imageData === false) {
+        return false;
+    }
 
-  // Crop user image to a square (center crop)
-  $size = min($srcWidth, $srcHeight);
-  $srcX = ($srcWidth - $size) / 2;
-  $srcY = ($srcHeight - $size) / 2;
-  $cropped = imagecreatetruecolor(1080, 1080);
-  imagecopyresampled($cropped, $src, 0, 0, $srcX, $srcY, 1080, 1080, $size, $size);
+    $src = imagecreatefromstring($imageData);
+    if ($src === false) {
+        return false;
+    }
 
-  // Load and resize frame to 1080x1080
-  $fg = imagecreatefrompng($designPath);
-  $resizedFG = imagecreatetruecolor(1080, 1080);
+    $size = getimagesize($sourcePath);
+    $srcWidth = $size[0];
+    $srcHeight = $size[1];
+    $squareSize = min($srcWidth, $srcHeight);
+    $srcX = ($srcWidth - $squareSize) / 2;
+    $srcY = ($srcHeight - $squareSize) / 2;
 
-  imagealphablending($resizedFG, false);
-  imagesavealpha($resizedFG, true);
+    $cropped = imagecreatetruecolor(1080, 1080);
+    imagecopyresampled($cropped, $src, 0, 0, $srcX, $srcY, 1080, 1080, $squareSize, $squareSize);
+    imagedestroy($src);
 
-  imagecopyresampled($resizedFG, $fg, 0, 0, 0, 0, 1080, 1080, imagesx($fg), imagesy($fg));
+    $fg = imagecreatefrompng($designPath);
+    $resizedFG = imagecreatetruecolor(1080, 1080);
+    imagealphablending($resizedFG, false);
+    imagesavealpha($resizedFG, true);
+    imagecopyresampled($resizedFG, $fg, 0, 0, 0, 0, 1080, 1080, imagesx($fg), imagesy($fg));
+    imagedestroy($fg);
 
-  // Merge cropped photo with frame
-  $final = imagecreatetruecolor(1080, 1080);
-  imagecopy($final, $cropped, 0, 0, 0, 0, 1080, 1080);
-  imagecopy($final, $resizedFG, 0, 0, 0, 0, 1080, 1080);
+    $final = imagecreatetruecolor(1080, 1080);
+    imagecopy($final, $cropped, 0, 0, 0, 0, 1080, 1080);
+    imagedestroy($cropped);
+    imagecopy($final, $resizedFG, 0, 0, 0, 0, 1080, 1080);
+    imagedestroy($resizedFG);
 
-  // Output the final image as PNG
-  ob_start();
-  imagepng($final);
-  $imageData = ob_get_clean();
+    ob_start();
+    imagepng($final);
+    $result = ob_get_clean();
+    imagedestroy($final);
 
-  return $imageData;
+    return $result;
 }

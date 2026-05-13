@@ -1,137 +1,140 @@
-function dataURItoBlob(dataURI) {
-    // convert base64/URLEncoded data component to raw binary data held in a string
-    var byteString;
-    if (dataURI.split(',')[0].indexOf('base64') >= 0)
-        byteString = atob(dataURI.split(',')[1]);
-    else
-        byteString = unescape(dataURI.split(',')[1]);
+'use strict';
 
-    // separate out the mime component
-    var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+const CANVAS_SIZE = 720;
+const ZOOM_MIN = 0.1;
+const ZOOM_MAX = 3;
 
-    // write the bytes of the string to a typed array
-    var ia = new Uint8Array(byteString.length);
-    for (var i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
-    }
+let canvas = null;
 
-    return new Blob([ia], {type:mimeString});
+function initCanvas() {
+  if (canvas) canvas.dispose();
+
+  canvas = new fabric.Canvas('editor-canvas', {
+    preserveObjectStacking: true,
+    selection: false
+  });
+
+  canvas.setWidth(CANVAS_SIZE);
+  canvas.setHeight(CANVAS_SIZE);
+
+  canvas.on('mouse:wheel', function(opt) {
+    const obj = canvas.getActiveObject();
+    if (!obj) return;
+
+    let scale = obj.scaleX * (0.999 ** opt.e.deltaY);
+    scale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, scale));
+
+    obj.scale(scale);
+    document.getElementById('zoom-slider').value = scale;
+    canvas.renderAll();
+
+    opt.e.preventDefault();
+    opt.e.stopPropagation();
+  });
 }
 
-window.uploadPicture = function(callback){
-  croppie.result({
-    size: "viewport"
-  }).then(function(dataURI){
-    var formData = new FormData();
-    formData.append("design", $("#fg").data("design"));
-    formData.append("image", dataURItoBlob(dataURI));
-    $.ajax({
-      url: "upload.php",
-      data: formData,
-      type: "POST",
-      contentType: false,
-      processData: false,
-      success: callback,
-      error: function(){
-        document.getElementById("download").innerHTML = "Download Profile Picture";
-      },
-      xhr: function() {
-        var myXhr = $.ajaxSettings.xhr();
-        if(myXhr.upload){
-            myXhr.upload.addEventListener('progress', function(e){
-              if(e.lengthComputable){
-                var max = e.total;
-                var current = e.loaded;
+function loadImage(url) {
+  initCanvas();
 
-                var percentage = Math.round((current * 100)/max);
-                document.getElementById("download").innerHTML = "Uploading... Please Wait... " + percentage + "%";
-              }
-            }, false);
-        }
-        return myXhr;
-      },
+  fabric.Image.fromURL(url, function(img) {
+    const scale = Math.max(CANVAS_SIZE / img.width, CANVAS_SIZE / img.height);
+
+    img.set({
+      left: CANVAS_SIZE / 2,
+      top: CANVAS_SIZE / 2,
+      originX: 'center',
+      originY: 'center',
+      centeredRotation: true,
+      cornerColor: '#22a73a',
+      cornerStrokeColor: '#22a73a',
+      borderColor: '#22a73a',
+      transparentCorners: false,
+      cornerSize: 18,
+      cornerStyle: 'circle',
+      padding: 40,
+      borderScaleFactor: 3,
     });
-  });
+
+    img.scale(scale);
+    canvas.add(img);
+    canvas.setActiveObject(img);
+    canvas.renderAll();
+
+    document.getElementById('zoom-slider').value = scale;
+    document.getElementById('download').dataset.previewReady = 'true';
+    checkInputs();
+  }, { crossOrigin: 'anonymous' });
 }
 
-window.updatePreview = function(url) {
-  document.getElementById("crop-area").innerHTML = "";
-  window.croppie = new Croppie(document.getElementById("crop-area"), {
-    "url": url,
-    boundary: {
-      height: 720,
-      width: 720
-    },
-    viewport: {
-      width: 720,
-      height: 720
-    },
-  });
-
-  $("#fg").on('mouseover touchstart', function(){
-    document.getElementById("fg").style.zIndex = -1;
-  });
-  $(".cr-boundary").on('mouseleave touchend', function(){
-    document.getElementById("fg").style.zIndex = 10;
-  });
-
-  document.getElementById("download").onclick = function(){
-    this.innerHTML = "Uploading... Please wait...";
-    uploadPicture(function(r){
-      document.getElementById("download").innerHTML = "Uploaded";
-      const name = encodeURIComponent($('#name').val().trim());
-      const role = encodeURIComponent($('#role').val().trim());
-      const testimony = encodeURIComponent($('#testimony').val().trim());
-      window.location = `download.php?i=${r}&name=${name}&role=${role}&testimony=${testimony}`;
-
-      // window.location = "download.php?i=" + r;
-    });
-  };
-  // document.getElementById("download").removeAttribute("disabled");
-  $('#download').data('preview-ready', true);
-checkInputs();
-};
-
-window.onFileChange = function(input){
-  if (input.files && input.files[0]) {
-    var reader = new FileReader();
-
-    reader.onload = function (e) {
-      image = new Image();
-      image.onload = function() {
-        var width = this.width;
-        var height = this.height;
-        // if(width >= 1080 && height >= 1080)
-          updatePreview(e.target.result);
-        // else
-        //   alert("Image should be atleast have 1080px width and 1080px height!", width);
-        
-      };
-      image.src = e.target.result; 
-    }
-
-    reader.readAsDataURL(input.files[0]);
-  }
-}
 function checkInputs() {
-  const nameFilled = $('#name').val().trim() !== '';
-  const roleSelected = $('#role').val().trim() !== '';
-  const testimonyFilled = $('#testimony').val().trim() !== '';
-  const isPreviewReady = $('#download').data('preview-ready') === true;
+  const name = document.getElementById('name').value.trim();
+  const role = document.getElementById('role').value.trim();
+  const testimony = document.getElementById('testimony').value.trim();
+  const previewReady = document.getElementById('download').dataset.previewReady === 'true';
 
-  if (nameFilled && roleSelected && isPreviewReady && testimonyFilled) {
-    $('#download').prop('disabled', false);
-  } else {
-    $('#download').prop('disabled', true);
-  }
+  document.getElementById('download').disabled = !(name && role && testimony && previewReady);
 }
 
-$(document).ready(function(){
-  $(".design").on("click", function(){
-    $("#fg").attr("src", $(this).attr("src")).data("design", $(this).data("design"));
-    $(".design.active").removeClass("active");
-    $(this).addClass("active");
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('rotate-left').addEventListener('click', function() {
+    const obj = canvas && canvas.getActiveObject();
+    if (!obj) return;
+    obj.rotate(obj.angle - 5);
+    canvas.renderAll();
   });
 
-    $('#name, #role, #testimony').on('input change', checkInputs);
+  document.getElementById('rotate-right').addEventListener('click', function() {
+    const obj = canvas && canvas.getActiveObject();
+    if (!obj) return;
+    obj.rotate(obj.angle + 5);
+    canvas.renderAll();
+  });
+
+  document.getElementById('zoom-slider').addEventListener('input', function() {
+    const obj = canvas && canvas.getActiveObject();
+    if (!obj) return;
+    obj.scale(parseFloat(this.value));
+    canvas.renderAll();
+  });
+
+  document.querySelector('input[name="file"]').addEventListener('change', function() {
+    if (!this.files || !this.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = function(e) { loadImage(e.target.result); };
+    reader.readAsDataURL(this.files[0]);
+  });
+
+  ['name', 'role', 'testimony'].forEach(function(id) {
+    const el = document.getElementById(id);
+    el.addEventListener('input', checkInputs);
+    el.addEventListener('change', checkInputs);
+  });
+
+  document.getElementById('download').addEventListener('click', function() {
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = CANVAS_SIZE;
+    exportCanvas.height = CANVAS_SIZE;
+
+    const ctx = exportCanvas.getContext('2d');
+    const image = new Image();
+
+    image.src = canvas.toDataURL({ format: 'png', quality: 1 });
+    image.onload = function() {
+      ctx.drawImage(image, 0, 0);
+
+      const frame = new Image();
+      frame.src = document.getElementById('frame-overlay').src;
+      frame.onload = function() {
+        ctx.drawImage(frame, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+        const finalImage = exportCanvas.toDataURL('image/png');
+        const name = encodeURIComponent(document.getElementById('name').value.trim());
+        const role = encodeURIComponent(document.getElementById('role').value.trim());
+        const testimony = encodeURIComponent(document.getElementById('testimony').value.trim());
+
+        sessionStorage.setItem('campaignImage', finalImage);
+        window.location = `download.php?name=${name}&role=${role}&testimony=${testimony}`;
+      };
+    };
+  });
 });
